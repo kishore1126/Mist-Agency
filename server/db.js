@@ -40,7 +40,7 @@ export const defaultSampleInvoice = {
   invoiceDate: '20/06/2026',
   buyer: {
     companyName: 'INDIA LAND TECH PARK PRIVATE LIMITED',
-    address: 'CHIL SEZ Area, Keernatham Village, Saravanampatti, Coimbatore - 641 035',
+    address: 'CHIL SEZ Area, Keernatham Village,\nSaravanampatti, Coimbatore - 641 035',
     mobile: '',
     state: 'TAMIL NADU',
     code: '33 - TN',
@@ -48,7 +48,7 @@ export const defaultSampleInvoice = {
   },
   shippedTo: {
     companyName: 'INDIA LAND TECH PARK PRIVATE LIMITED',
-    address: 'CHIL SEZ Area, Keernatham Village, Saravanampatti, Coimbatore - 641 035',
+    address: 'CHIL SEZ Area, Keernatham Village,\nSaravanampatti, Coimbatore - 641 035',
     mobile: '',
     state: 'TAMIL NADU',
     code: '33 - TN',
@@ -56,7 +56,7 @@ export const defaultSampleInvoice = {
   },
   shippedFrom: {
     companyName: 'MIST AGENCIES',
-    address: 'No.34, New Balaji Nagar, Kottaipalayam(PO S S Kulam, Coimbatore, - 641 110.',
+    address: 'No.34, New Balaji Nagar, Kottaipalayam(PO\nS S Kulam, Coimbatore, - 641 110.',
     state: 'TAMIL NADU',
     gstin: '33ADZPL9469J1ZI'
   },
@@ -64,22 +64,22 @@ export const defaultSampleInvoice = {
     {
       id: 'item-1',
       srNo: '01',
-      particulars: 'TWENTY LITRE WATER JAR &\nEmpty can Replaceable',
+      particulars: 'TWENTY LITRE\nWATER JAR &\nEmpty can\nReplaceable',
       hsnCode: '22011010',
       quantity: 80,
       rate: 85.71,
-      taxableValue: 6857.20,
+      taxableValue: 6857.2,
       gstPercent: 5,
       gstAmount: 342.86,
       total: 7200.06
     }
   ],
   summary: {
-    totalTaxableAmount: 6857.20,
+    totalTaxableAmount: 6857.2,
     addIgst: 342.86,
     totalTax: 342.86,
     totalAmountAfterTax: 7200.06,
-    amountInWords: 'Seven Thousand Two Hundred Rupees and Six Paise Only'
+    amountInWords: 'Seven Thousand Two Hundred only'
   },
   status: 'Issued',
   createdAt: new Date().toISOString(),
@@ -117,10 +117,10 @@ export function initDb() {
     );
   }
 
-  // Seed reference invoice if empty
-  const invoiceCount = db.prepare('SELECT count(*) as count FROM invoices').get().count;
-  if (invoiceCount === 0) {
-    const sampleId = 'inv-ref-26';
+  // Update or insert reference invoice
+  const sampleId = 'inv-ref-26';
+  const existingSample = db.prepare('SELECT * FROM invoices WHERE id = ?').get(sampleId);
+  if (!existingSample) {
     db.prepare(`
       INSERT INTO invoices (id, invoice_number, invoice_date, customer_name, total_amount, status, data, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -135,8 +135,23 @@ export function initDb() {
       defaultSampleInvoice.createdAt,
       defaultSampleInvoice.updatedAt
     );
+  } else {
+    // Update existing sample to ensure exact reference matches
+    db.prepare(`
+      UPDATE invoices
+      SET invoice_number = ?, invoice_date = ?, customer_name = ?, total_amount = ?, data = ?
+      WHERE id = ?
+    `).run(
+      defaultSampleInvoice.invoiceNumber,
+      defaultSampleInvoice.invoiceDate,
+      defaultSampleInvoice.buyer.companyName,
+      defaultSampleInvoice.summary.totalAmountAfterTax,
+      JSON.stringify({ ...defaultSampleInvoice, id: sampleId }),
+      sampleId
+    );
   }
 }
+
 
 export function getTemplate() {
   const row = db.prepare('SELECT data FROM template WHERE id = 1').get();

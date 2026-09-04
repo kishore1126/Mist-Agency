@@ -1,6 +1,7 @@
 import React from 'react';
 import { InvoiceData, TemplateData } from '../types/invoice';
 import { DEFAULT_LOGO_BASE64 } from '../utils/logoBase64';
+import '../invoice.css';
 
 interface InvoicePreviewProps {
   invoice: InvoiceData;
@@ -8,300 +9,210 @@ interface InvoicePreviewProps {
   id?: string;
 }
 
+// Helper to format numbers cleanly (e.g. 6857.2 matching original bill)
+const formatAmount = (num: number | string | undefined): string => {
+  if (num === undefined || num === null || num === '') return '0.00';
+  const val = Number(num);
+  if (isNaN(val)) return String(num);
+  const str = val.toFixed(2);
+  return str.endsWith('0') && !str.endsWith('.00') ? val.toFixed(1) : str;
+};
+
 export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, template, id = 'invoice-preview' }) => {
   const { buyer, shippedTo, shippedFrom, items, summary } = invoice;
-  const logoSrc = (template.logoUrl && template.logoUrl.startsWith('data:')) 
-    ? template.logoUrl 
-    : DEFAULT_LOGO_BASE64;
+  const hasCustomLogo = Boolean(template.logoUrl && template.logoUrl.startsWith('data:'));
+  const logoSrc = hasCustomLogo ? template.logoUrl : DEFAULT_LOGO_BASE64;
 
   return (
-    <div
-      id={id}
-      className="invoice-preview-container bg-white text-black text-[11px] leading-tight font-sans mx-auto shadow-2xl relative select-text"
-      style={{
-        width: '210mm',
-        minHeight: '297mm',
-        padding: '10mm 10mm 10mm 10mm',
-        boxSizing: 'border-box',
-        color: '#000',
-        fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
-      }}
-    >
-      {/* Outer Border Box */}
-      <div className="border border-black h-full flex flex-col justify-between relative">
-        
-        {/* HEADER SECTION MATCHING ORIGINAL MASTER REFERENCE */}
-        <div className="p-3 border-b border-black">
-          {/* Top Line: MIST AGENCIES (Left) + Invoice No & Date (Right) */}
-          <div className="flex justify-between items-baseline mb-1">
-            <h1 className="font-serif text-[32px] font-bold tracking-wide text-black leading-none">
-              {template.companyName || 'MIST AGENCIES'}
-            </h1>
-            <div className="text-[12px] font-bold text-right flex items-center gap-6">
-              <p className="text-gray-900">
-                <span className="text-[#2b6eb5] font-medium">Invoice No : </span>
-                <span className="font-semibold">{invoice.invoiceNumber}</span>
-              </p>
-              <p className="text-gray-900">
-                <span className="text-[#2b6eb5] font-medium">Invoice Date : </span>
-                <span className="font-semibold">{invoice.invoiceDate}</span>
-              </p>
+    <div id={id} className="page invoice-preview-page">
+      <div className="invoice-frame">
+
+        {/* Header Row 1: MIST AGENCIES, Invoice No, Invoice Date in single baseline row */}
+        <div className="header-row-1">
+          <div className="brand-title">{template.companyName || 'MIST AGENCIES'}</div>
+          <div className="invoice-meta-fields">
+            <div className="meta-field">
+              <span className="label">Invoice No : </span>
+              <span className="value">{invoice.invoiceNumber}</span>
+            </div>
+            <div className="meta-field">
+              <span className="label">Invoice Date : </span>
+              <span className="value">{invoice.invoiceDate}</span>
             </div>
           </div>
+        </div>
 
-          {/* Middle & Bottom Header Row: Blue Banner + Address + Phone + Right Logo */}
-          <div className="flex justify-between items-start mt-1">
-            {/* Left Content Area (Banner & Contact) */}
-            <div className="flex-1 pr-4">
-              {/* Blue Banner Subtitle */}
-              <div className="bg-[#2e6cb0] text-white text-[11.5px] font-bold px-3 py-[3.5px] tracking-wider uppercase inline-block w-[72%] mb-2">
-                {template.subtitle || 'DISTRIBUTOR OF PACKAGED DRINKING WATER'}
+        {/* Middle Section: Left (Banner + Address/Phone) and Right (Full-height Logo) */}
+        <div className="header-middle-section">
+          <div className="left-section-col">
+            <div className="banner-strip">
+              {template.subtitle || 'DISTRIBUTOR OF PACKAGED DRINKING WATER'}
+            </div>
+            <div className="contact-row">
+              <div className="contact-address">
+                <p>{template.addressLine1 || 'No.34, New Balaji Nagar, Kottaipalayam(PO)'}</p>
+                <p>{template.addressLine2 || 'S S Kulam, Coimbatore, Tamil Nadu-641 110. India'}</p>
+                <p>
+                  email: <a href={`mailto:${template.email || 'mistwateragencies@gmail.com'}`}>{template.email || 'mistwateragencies@gmail.com'}</a>
+                </p>
               </div>
-
-              {/* Address & Phone Row */}
-              <div className="flex justify-between items-start text-[10px] text-black">
-                <div className="leading-snug">
-                  <p>{template.addressLine1 || 'No.34, New Balaji Nagar, Kottaipalayam(PO)'}</p>
-                  <p>{template.addressLine2 || 'S S Kulam, Coimbatore, Tamil Nadu-641 110. India'}</p>
-                  <p className="mt-0.5">email: <span className="underline">{template.email || 'mistwateragencies@gmail.com'}</span></p>
+              <div className="contact-phones">
+                <div className="phone-circle-icon">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="#000">
+                    <path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z" />
+                  </svg>
                 </div>
-
-                {/* Phone Section */}
-                <div className="flex items-center gap-2 mr-4">
-                  <div className="w-6 h-6 rounded-full border border-black flex items-center justify-center text-[12px]">
-                    📞
-                  </div>
-                  <div className="text-[11px] font-bold leading-snug">
-                    <p>: {template.phone1 || '90033 42551'}</p>
-                    <p>: {template.phone2 || '99521 88999'}</p>
-                  </div>
+                <div className="phone-numbers">
+                  <p>: {template.phone1 || '90033 42551'}</p>
+                  <p>: {template.phone2 || '99521 88999'}</p>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Far Right Logo Mark (Base64 Inline Data URI) */}
-            <div className="w-28 h-20 flex items-center justify-end">
-              <img
-                src={logoSrc}
-                alt="MIST Agencies Logo"
-                className="max-h-full max-w-full object-contain"
-              />
+          <div className="right-logo-col">
+            <div className="logo-container" aria-hidden="true">
+              <img src={logoSrc} alt="MIST Logo" />
             </div>
           </div>
         </div>
 
-        {/* GSTIN / TAX INVOICE / ORIGINAL FOR RECIPIENT STRIP */}
-        <div className="grid grid-cols-3 border-b border-black text-[11px] font-bold text-center">
-          <div className="p-1 border-r border-black text-left px-2">
-            GSTIN : <span className="font-semibold">{template.gstin || '33ADZPL9469J1ZI'}</span>
+        {/* BOX 1: Party Details */}
+        <div className="box-party">
+          {/* Header row without vertical lines, centered text */}
+          <div className="gstin-header-row">
+            <div className="gstin-cell gstin-left">GSTIN : {template.gstin || '33ADZPL9469J1ZI'}</div>
+            <div className="gstin-cell gstin-center">TAX INVOICE</div>
+            <div className="gstin-cell gstin-right">Original for Recipient</div>
           </div>
-          <div className="p-1 border-r border-black uppercase text-[12px] tracking-wider font-extrabold">
-            TAX INVOICE
-          </div>
-          <div className="p-1 text-right px-2 font-normal text-gray-800">
-            Original for Recipient
-          </div>
-        </div>
-
-        {/* 3-COLUMN BUYER / SHIPPED TO / SHIPPED FROM GRID */}
-        <div className="grid grid-cols-3 border-b border-black text-[10px]">
-          {/* Column 1: Details of Buyer */}
-          <div className="p-2 border-r border-black flex flex-col justify-between">
-            <div>
-              <p className="font-bold text-[11px] mb-1.5">Details of Buyer - ( Billed To )</p>
-              <p className="font-bold uppercase text-[11px] text-gray-900 mb-1">{buyer.companyName}</p>
-              <p className="whitespace-pre-line text-gray-800 leading-snug">{buyer.address}</p>
-            </div>
-            <div className="mt-2 space-y-0.5">
-              <p><span className="font-semibold">Mobile :</span> {buyer.mobile}</p>
-              <div className="flex justify-between pr-2">
-                <p><span className="font-semibold">State :</span> {buyer.state}</p>
-                <p><span className="font-semibold">Code :</span> {buyer.code}</p>
+          <div className="party-columns">
+            <div className="party-col">
+              <div className="party-title">Details of Buyer - ( Billed To )</div>
+              <div className="party-company-name">{buyer.companyName}</div>
+              <div className="party-address">{buyer.address}</div>
+              <div className="party-meta">
+                <p><strong>Mobile :</strong> {buyer.mobile || ''}</p>
+                <p><strong>State :</strong> &nbsp;{buyer.state} &nbsp;&nbsp;&nbsp;&nbsp;<strong>Code :</strong> &nbsp;{buyer.code}</p>
+                <p><strong>GSTIN :</strong> &nbsp;{buyer.gstin}</p>
               </div>
-              <p><span className="font-semibold">GSTIN :</span> {buyer.gstin}</p>
             </div>
-          </div>
-
-          {/* Column 2: Shipped To */}
-          <div className="p-2 border-r border-black flex flex-col justify-between">
-            <div>
-              <p className="font-bold text-[11px] mb-1.5">Shipped To :</p>
-              <p className="font-bold uppercase text-[11px] text-gray-900 mb-1">{shippedTo.companyName}</p>
-              <p className="whitespace-pre-line text-gray-800 leading-snug">{shippedTo.address}</p>
+            <div className="party-col">
+              <div className="party-title">Shipped To :</div>
+              <div className="party-company-name">{shippedTo.companyName}</div>
+              <div className="party-address">{shippedTo.address}</div>
+              <div className="party-meta">
+                <p><strong>Mobile :</strong> {shippedTo.mobile || ''}</p>
+                <p><strong>State :</strong> &nbsp;{shippedTo.state}</p>
+                <p><strong>GSTIN :</strong> &nbsp;{shippedTo.gstin}</p>
+                <p><strong>Code :</strong> &nbsp;{shippedTo.code}</p>
+              </div>
             </div>
-            <div className="mt-2 space-y-0.5">
-              <p><span className="font-semibold">Mobile :</span> {shippedTo.mobile}</p>
-              <p><span className="font-semibold">State :</span> {shippedTo.state}</p>
-              <p><span className="font-semibold">GSTIN :</span> {shippedTo.gstin}</p>
-              <p><span className="font-semibold">Code :</span> {shippedTo.code}</p>
-            </div>
-          </div>
-
-          {/* Column 3: Shipped From */}
-          <div className="p-2 flex flex-col justify-between">
-            <div>
-              <p className="font-bold text-[11px] mb-1.5">Shipped From :</p>
-              <p className="font-bold uppercase text-[11px] text-gray-900 mb-1">{shippedFrom.companyName}</p>
-              <p className="whitespace-pre-line text-gray-800 leading-snug">{shippedFrom.address}</p>
-            </div>
-            <div className="mt-2 space-y-0.5">
-              <p><span className="font-semibold">State :</span> {shippedFrom.state}</p>
-              <p><span className="font-semibold">GSTIN :</span> {shippedFrom.gstin}</p>
+            <div className="party-col">
+              <div className="party-title">Shipped From :</div>
+              <div className="party-company-name">{shippedFrom.companyName}</div>
+              <div className="party-address">{shippedFrom.address}</div>
+              <div className="party-meta">
+                <p><strong>State :</strong> &nbsp;{shippedFrom.state}</p>
+                <p><strong>GSTIN :</strong> &nbsp;{shippedFrom.gstin}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ITEM TABLE SECTION */}
-        <div className="flex-1 flex flex-col relative min-h-[380px]">
-          {/* Faint Watermark Logo in background of item table */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] pointer-events-none z-0">
-            <img src={logoSrc} alt="Watermark" className="w-[260px] grayscale filter" />
+        {/* BOX 2: Line Items Table */}
+        <div className="box-items">
+          {/* Faint Watermark */}
+          <div className="table-watermark" aria-hidden="true">
+            <img src={logoSrc} alt="" />
           </div>
 
-          <table className="w-full border-collapse text-[10px] z-10 relative flex-1">
+          <table className="items-table">
             <thead>
-              <tr className="border-b border-black text-center font-bold">
-                <th className="p-1 border-r border-black w-[6%] font-semibold">Sr No:</th>
-                <th className="p-1 border-r border-black w-[30%] font-semibold">Particulars</th>
-                <th className="p-1 border-r border-black w-[12%] font-semibold">HSN Code</th>
-                <th className="p-1 border-r border-black w-[8%] font-semibold">Qty</th>
-                <th className="p-1 border-r border-black w-[10%] font-semibold">Rate</th>
-                <th className="p-1 border-r border-black w-[12%] font-semibold leading-tight">Taxable<br/>value</th>
-                <th className="border-r border-black w-[14%]" colSpan={2}>
-                  <div className="border-b border-black p-0.5">IGST</div>
-                  <div className="grid grid-cols-2">
-                    <div className="border-r border-black p-0.5">%</div>
-                    <div className="p-0.5">Amount</div>
-                  </div>
-                </th>
-                <th className="p-1 w-[12%] font-semibold">Total</th>
+              <tr>
+                <th className="col-sr" rowSpan={2}>Sr No:</th>
+                <th className="col-particulars" rowSpan={2}>Particulars</th>
+                <th className="col-hsn" rowSpan={2}>HSN Code</th>
+                <th className="col-qty" rowSpan={2}>Qty</th>
+                <th className="col-rate" rowSpan={2}>Rate</th>
+                <th className="col-taxable" rowSpan={2}>Taxable<br />valve</th>
+                <th className="col-igst-header" colSpan={2}>IGST</th>
+                <th className="col-total" rowSpan={2}>Total</th>
+              </tr>
+              <tr>
+                <th className="col-igst-pct">%</th>
+                <th className="col-igst-amt">Amount</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
-                <tr key={item.id || idx} className="text-center align-top">
-                  <td className="p-1.5 border-r border-black">{item.srNo || String(idx + 1).padStart(2, '0')}</td>
-                  <td className="p-1.5 border-r border-black text-left font-semibold uppercase whitespace-pre-line leading-normal">
-                    {item.particulars}
-                  </td>
-                  <td className="p-1.5 border-r border-black font-mono">{item.hsnCode}</td>
-                  <td className="p-1.5 border-r border-black font-semibold">{item.quantity}</td>
-                  <td className="p-1.5 border-r border-black">{Number(item.rate).toFixed(2)}</td>
-                  <td className="p-1.5 border-r border-black font-medium">{Number(item.taxableValue).toFixed(2)}</td>
-                  <td className="p-1.5 border-r border-black w-[5%]">{item.gstPercent}</td>
-                  <td className="p-1.5 border-r border-black w-[9%]">{Number(item.gstAmount).toFixed(2)}</td>
-                  <td className="p-1.5 font-semibold text-right pr-2">{Number(item.total).toFixed(2)}</td>
+                <tr key={item.id || idx}>
+                  <td className="col-sr">{item.srNo || String(idx + 1).padStart(2, '0')}</td>
+                  <td className="col-particulars" style={{ whiteSpace: 'pre-line' }}>{item.particulars}</td>
+                  <td className="col-hsn">{item.hsnCode}</td>
+                  <td className="col-qty">{item.quantity}</td>
+                  <td className="col-rate">{formatAmount(item.rate)}</td>
+                  <td className="col-taxable">{formatAmount(item.taxableValue)}</td>
+                  <td className="col-igst-pct">{item.gstPercent}</td>
+                  <td className="col-igst-amt">{formatAmount(item.gstAmount)}</td>
+                  <td className="col-total">{formatAmount(item.total)}</td>
                 </tr>
               ))}
-
-              {/* Empty spacing rows to stretch table height gracefully */}
-              {Array.from({ length: Math.max(0, 5 - items.length) }).map((_, i) => (
-                <tr key={`empty-${i}`} className="h-8">
-                  <td className="border-r border-black"></td>
-                  <td className="border-r border-black"></td>
-                  <td className="border-r border-black"></td>
-                  <td className="border-r border-black"></td>
-                  <td className="border-r border-black"></td>
-                  <td className="border-r border-black"></td>
-                  <td className="border-r border-black"></td>
-                  <td className="border-r border-black"></td>
-                  <td></td>
-                </tr>
-              ))}
+              <tr className="blank-area-row">
+                <td className="col-sr"></td>
+                <td className="col-particulars"></td>
+                <td className="col-hsn"></td>
+                <td className="col-qty"></td>
+                <td className="col-rate"></td>
+                <td className="col-taxable"></td>
+                <td className="col-igst-pct"></td>
+                <td className="col-igst-amt"></td>
+                <td className="col-total"></td>
+              </tr>
             </tbody>
-
-            {/* Table Footer Total Row */}
             <tfoot>
-              <tr className="border-t border-b border-black font-bold text-center text-[10.5px]">
-                <td colSpan={5} className="p-1 text-right border-r border-black pr-3 uppercase">Total</td>
-                <td className="p-1 border-r border-black font-bold">{Number(summary.totalTaxableAmount).toFixed(2)}</td>
-                <td className="border-r border-black"></td>
-                <td className="p-1 border-r border-black font-bold">{Number(summary.totalTax || summary.addIgst).toFixed(2)}</td>
-                <td className="p-1 text-right pr-2 font-bold">{Number(summary.totalAmountAfterTax).toFixed(2)}</td>
+              <tr>
+                <td colSpan={5} className="total-label">Total</td>
+                <td className="col-taxable">{formatAmount(summary.totalTaxableAmount)}</td>
+                <td className="col-igst-pct"></td>
+                <td className="col-igst-amt">{formatAmount(summary.totalTax || summary.addIgst)}</td>
+                <td className="col-total">{formatAmount(summary.totalAmountAfterTax)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
 
-        {/* BOTTOM SECTION: WORDS & BANK DETAILS (LEFT) / SUMMARY TOTALS (RIGHT) */}
-        <div className="grid grid-cols-12 border-t border-black text-[10px]">
-          {/* Left Column (7 cols): Words, Bank, Terms */}
-          <div className="col-span-7 border-r border-black flex flex-col justify-between">
-            {/* Total in Words */}
-            <div className="border-b border-black p-1.5">
-              <p className="font-semibold text-gray-700 text-center mb-1">Total in words</p>
-              <p className="font-bold text-center text-[11px] capitalize">
-                {summary.amountInWords}
-              </p>
+        {/* BOX 3: Summary, Bank, Terms & Signature */}
+        <div className="box-summary">
+          {/* Left Column: Total in words, Bank Details, Terms and Conditions */}
+          <div className="summary-left-pane">
+            <div className="pane-header-bar">Total in words</div>
+            <div className="words-content-area">{summary.amountInWords || 'Seven Thousand Two Hundred only'}</div>
+            <div className="bank-header-bar">Bank Details</div>
+            <div className="bank-details-content">
+              <p><strong>BANK NAME</strong> &nbsp;&nbsp;&nbsp;: {template.bankName || 'CANARA BANK'}</p>
+              <p><strong>BRANCH</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {template.branch || 'S . S KULAM'}</p>
+              <p><strong>ACCOUNT NO</strong> &nbsp;: {template.accountNo || '120002370290'}</p>
+              <p><strong>IFSC</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {template.ifsc || 'CNRB0001034'}</p>
             </div>
-
-            {/* Bank Details */}
-            <div className="p-2 border-b border-black flex-1">
-              <p className="font-bold text-center text-[11px] mb-1.5">Bank Details</p>
-              <div className="space-y-0.5 max-w-[280px] mx-auto text-[10.5px]">
-                <div className="grid grid-cols-12">
-                  <span className="col-span-5 font-bold">BANK NAME</span>
-                  <span className="col-span-1">:</span>
-                  <span className="col-span-6 font-bold uppercase">{template.bankName || 'CANARA BANK'}</span>
-                </div>
-                <div className="grid grid-cols-12">
-                  <span className="col-span-5 font-bold">BRANCH</span>
-                  <span className="col-span-1">:</span>
-                  <span className="col-span-6 font-bold uppercase">{template.branch || 'S . S KULAM'}</span>
-                </div>
-                <div className="grid grid-cols-12">
-                  <span className="col-span-5 font-bold">ACCOUNT NO</span>
-                  <span className="col-span-1">:</span>
-                  <span className="col-span-6 font-bold">{template.accountNo || '120002370290'}</span>
-                </div>
-                <div className="grid grid-cols-12">
-                  <span className="col-span-5 font-bold">IFSC</span>
-                  <span className="col-span-1">:</span>
-                  <span className="col-span-6 font-bold uppercase">{template.ifsc || 'CNRB0001034'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Terms and Conditions */}
-            <div className="p-1.5 text-[8.5px] leading-tight text-gray-800">
-              <span className="font-bold">Terms and Conditions:</span> {template.terms || 'Empty cans must be returned during the next delivery; loss or damage will incur additional charges.'}
+            <div className="terms-content-area">
+              <strong>Terms and Conditions:</strong> {template.terms || 'Empty cans must be returned during the next delivery; loss or damage will incur additional charges.'}
             </div>
           </div>
 
-          {/* Right Column (5 cols): Tax Breakdowns & Signature */}
-          <div className="col-span-5 flex flex-col justify-between">
-            <div className="divide-y divide-black text-[10px]">
-              <div className="flex justify-between p-1 px-2">
-                <span className="text-gray-700">Taxable Amount</span>
-                <span className="font-bold">{Number(summary.totalTaxableAmount).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between p-1 px-2">
-                <span className="text-gray-700">Add : IGST</span>
-                <span className="font-bold">{Number(summary.addIgst).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between p-1 px-2">
-                <span className="text-gray-700">Total Tax</span>
-                <span className="font-bold">{Number(summary.totalTax).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between p-1 px-2 bg-gray-50 font-bold text-[11px]">
-                <span>Total Amount After Tax</span>
-                <span>{Number(summary.totalAmountAfterTax).toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Signature Box */}
-            <div className="p-2 border-t border-black flex flex-col justify-between h-[100px] text-center">
-              <p className="text-[8px] italic text-gray-700">
-                {template.certifiedStatement || 'Certified that the particulars given above are true and correct'}
-              </p>
-
-              <div className="font-serif font-bold text-[15px] text-black tracking-wide my-1">
-                {template.companyName || 'MIST AGENCIES'}
-              </div>
-
-              <div className="text-[9.5px] font-semibold text-right pr-2 pt-2">
-                Authorised Signature
-              </div>
+          {/* Right Column: Tax Table, Certified Statement, Brand Name, Authorised Signature */}
+          <div className="summary-right-pane">
+            <table className="tax-calc-table">
+              <tbody>
+                <tr><td>Taxable Amount</td><td>{formatAmount(summary.totalTaxableAmount)}</td></tr>
+                <tr><td>Add : IGST</td><td>{formatAmount(summary.addIgst)}</td></tr>
+                <tr><td>Total Tax</td><td>{formatAmount(summary.totalTax)}</td></tr>
+                <tr className="row-total-after-tax"><td>Total Amount After Tax</td><td>{formatAmount(summary.totalAmountAfterTax)}</td></tr>
+              </tbody>
+            </table>
+            <div className="sign-content-area">
+              <div className="sign-certify-text">{template.certifiedStatement || 'Certified that the particulars given above are true and correct'}</div>
+              <div className="sign-brand-name">{template.companyName || 'MIST AGENCIES'}</div>
+              <div className="auth-signature-text">Authorised Signature</div>
             </div>
           </div>
         </div>
