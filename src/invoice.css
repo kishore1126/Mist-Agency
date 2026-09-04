@@ -1,0 +1,472 @@
+/* ===========================================================
+   MIST AGENCIES — Tax Invoice Layout (Pixel-Accurate)
+   =========================================================== */
+
+:root {
+  --blue-banner:  #3672B1;
+  --blue-brand:   #1A4588;
+  --logo-blue:    #3572B0;
+  --logo-green:   #8CC63F;
+  --ink:          #000000;
+  --rule:         #000000;
+  --rule-line:    1px solid #000000;
+  --grey-bg:      #EDEDED;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Page Outer Frame */
+.page, .invoice-preview-page {
+  width: 210mm;
+  height: 297mm;
+  min-height: 297mm;
+  max-height: 297mm;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 7.5mm 6mm;
+  position: relative;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  box-sizing: border-box;
+  border: var(--rule-line);
+}
+
+.invoice-preview-page p {
+  margin: 0.5mm 0;
+}
+
+.invoice-frame {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* ================= HEADER ROW 1 ================= */
+.invoice-preview-page .header-row-1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 0 2.5mm 0;
+}
+
+.invoice-preview-page .brand-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  font-size: 32pt;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  color: #000000;
+}
+
+.invoice-preview-page .invoice-meta-fields {
+  display: flex;
+  align-items: baseline;
+  gap: 12mm;
+  font-size: 9.5pt;
+  white-space: nowrap;
+}
+
+.invoice-preview-page .meta-field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1.5mm;
+}
+.invoice-preview-page .meta-field .label {
+  font-weight: 400;
+  color: #000;
+}
+.invoice-preview-page .meta-field .value {
+  font-weight: 700;
+  color: #000;
+}
+
+/* ================= MIDDLE SECTION: BANNER, CONTACT & FULL-HEIGHT LOGO ================= */
+.invoice-preview-page .header-middle-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  margin-bottom: 3.5mm;
+  margin-left: -6mm; /* Flush to left page border */
+  width: calc(100% + 6mm);
+  height: 27mm; /* Slightly increased size to match area between Invoice Date and Box 1 */
+}
+
+.invoice-preview-page .left-section-col {
+  width: 74.5%; /* Right edge ends exactly under the end of invoice number */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.invoice-preview-page .banner-strip {
+  width: 100%;
+  height: 8.5mm;
+  background: var(--blue-banner);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12.5pt;
+  letter-spacing: 0.5px;
+  padding-left: 6mm; /* Aligns text with main page content */
+  display: flex;
+  align-items: center;
+  text-transform: uppercase;
+}
+
+.invoice-preview-page .contact-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5mm 0 0 6mm;
+  font-size: 8.8pt;
+  line-height: 1.35;
+}
+
+.invoice-preview-page .contact-address p {
+  margin: 0.5mm 0;
+}
+.invoice-preview-page .contact-address a {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.invoice-preview-page .contact-phones {
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+  font-weight: 700;
+  font-size: 9.5pt;
+  margin-left: auto; /* Under right part of blue box, right side of address */
+  white-space: nowrap;
+}
+
+.invoice-preview-page .phone-circle-icon {
+  width: 7.5mm;
+  height: 7.5mm;
+  border-radius: 50%;
+  border: 1.2pt solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.invoice-preview-page .phone-numbers p {
+  margin: 0.5mm 0;
+}
+
+.invoice-preview-page .right-logo-col {
+  width: 25.5%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  padding-right: 0; /* Right edge aligns flush with Invoice Date end and box borders */
+}
+
+.invoice-preview-page .logo-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.invoice-preview-page .logo-container svg,
+.invoice-preview-page .logo-container img {
+  height: 100%;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* ================= BOX 1: PARTY DETAILS ================= */
+.invoice-preview-page .box-party {
+  border: var(--rule-line);
+  margin-bottom: 3.5mm;
+}
+
+/* Header row has NO vertical lines, text centered in each cell */
+.invoice-preview-page .gstin-header-row {
+  display: flex;
+  border-bottom: var(--rule-line);
+  font-size: 9.5pt;
+  padding: 1.8mm 0;
+}
+.invoice-preview-page .gstin-cell {
+  padding: 0 2mm;
+  border-right: none;
+}
+.invoice-preview-page .gstin-left {
+  width: 33.333%;
+  font-weight: 700;
+  text-align: center;
+}
+.invoice-preview-page .gstin-center {
+  width: 33.333%;
+  font-weight: 700;
+  text-align: center;
+}
+.invoice-preview-page .gstin-right {
+  width: 33.333%;
+  text-align: center;
+  font-weight: 400;
+}
+
+.invoice-preview-page .party-columns {
+  display: flex;
+  min-height: 38mm;
+}
+.invoice-preview-page .party-col {
+  width: 33.333%;
+  padding: 2.5mm 3.5mm;
+  border-right: var(--rule-line);
+  font-size: 8.5pt;
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+}
+.invoice-preview-page .party-col:last-child {
+  border-right: none;
+}
+
+.invoice-preview-page .party-title {
+  font-weight: 700;
+  font-size: 9.5pt;
+  margin-bottom: 2mm;
+}
+.invoice-preview-page .party-company-name {
+  font-weight: 700;
+  font-size: 9pt;
+  color: #000;
+  margin-bottom: 1.5mm;
+  text-transform: uppercase;
+}
+.invoice-preview-page .party-address {
+  margin: 0 0 2mm 0;
+  white-space: pre-line;
+}
+.invoice-preview-page .party-meta {
+  margin-top: auto;
+}
+.invoice-preview-page .party-meta p {
+  margin: 0.6mm 0;
+}
+
+/* ================= BOX 2: ITEMS TABLE ================= */
+.invoice-preview-page .box-items {
+  border: var(--rule-line);
+  margin-bottom: 3.5mm;
+  position: relative;
+}
+
+.invoice-preview-page .items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+
+.invoice-preview-page .items-table th,
+.invoice-preview-page .items-table td {
+  border: var(--rule-line);
+  padding: 1.5mm 2mm;
+}
+
+/* Header row has grey background */
+.invoice-preview-page .items-table thead th {
+  font-weight: 700;
+  text-align: center;
+  background-color: var(--grey-bg);
+}
+
+.invoice-preview-page .col-sr          { width: 7.5%; text-align: center; }
+.invoice-preview-page .col-particulars { width: 27%; text-align: left; }
+.invoice-preview-page .col-hsn         { width: 11%; text-align: center; }
+.invoice-preview-page .col-qty         { width: 7%;  text-align: center; }
+.invoice-preview-page .col-rate        { width: 8%;  text-align: center; }
+.invoice-preview-page .col-taxable     { width: 11.5%; text-align: center; }
+.invoice-preview-page .col-igst-pct    { width: 5.5%; text-align: center; }
+.invoice-preview-page .col-igst-amt    { width: 10.5%; text-align: center; }
+.invoice-preview-page .col-total       { width: 12%; text-align: center; }
+
+.invoice-preview-page .items-table tbody td {
+  text-align: center;
+  vertical-align: top;
+  border-top: none;
+  border-bottom: none;
+}
+.invoice-preview-page .items-table tbody td.col-particulars {
+  text-align: left;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.invoice-preview-page .blank-area-row td {
+  height: 53.5mm;
+  border-top: none;
+  border-bottom: none;
+}
+
+/* Watermark in blank area */
+.invoice-preview-page .table-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 55mm;
+  height: 45mm;
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 1;
+}
+.invoice-preview-page .table-watermark svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Total footer row has grey background */
+.invoice-preview-page .items-table tfoot tr {
+  border-top: var(--rule-line);
+  background-color: var(--grey-bg);
+}
+.invoice-preview-page .items-table tfoot td {
+  font-weight: 700;
+  text-align: center;
+  padding: 2mm;
+  background-color: var(--grey-bg);
+}
+.invoice-preview-page .items-table tfoot td.total-label {
+  text-align: center;
+}
+
+/* ================= BOX 3: SUMMARY, BANK, TERMS & SIGNATURE ================= */
+.invoice-preview-page .box-summary {
+  border: var(--rule-line);
+  display: flex;
+  align-items: stretch;
+}
+
+.invoice-preview-page .summary-left-pane {
+  width: 57%;
+  border-right: var(--rule-line);
+  display: flex;
+  flex-direction: column;
+}
+
+.invoice-preview-page .pane-header-bar {
+  border-bottom: var(--rule-line);
+  text-align: center;
+  font-weight: 700;
+  font-size: 9.5pt;
+  padding: 1.8mm 2mm;
+}
+
+.invoice-preview-page .words-content-area {
+  padding: 2mm 4mm;
+  height: 14mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 700;
+  font-size: 10.5pt;
+}
+
+.invoice-preview-page .bank-header-bar {
+  border-top: var(--rule-line);
+  border-bottom: var(--rule-line);
+  text-align: center;
+  font-weight: 700;
+  font-size: 9.5pt;
+  padding: 1.8mm 2mm;
+}
+
+.invoice-preview-page .bank-details-content {
+  padding: 2.5mm 4mm;
+  font-size: 9pt;
+  line-height: 1.45;
+}
+.invoice-preview-page .bank-details-content p {
+  margin: 0.8mm 0;
+}
+
+.invoice-preview-page .terms-content-area {
+  border-top: var(--rule-line);
+  padding: 2mm 3.5mm;
+  font-size: 7.5pt;
+  line-height: 1.35;
+  margin-top: auto;
+}
+.invoice-preview-page .terms-content-area strong {
+  font-size: 8pt;
+}
+
+.invoice-preview-page .summary-right-pane {
+  width: 43%;
+  display: flex;
+  flex-direction: column;
+}
+
+.invoice-preview-page .tax-calc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+.invoice-preview-page .tax-calc-table td {
+  padding: 1.6mm 3.5mm;
+  border-bottom: var(--rule-line);
+}
+.invoice-preview-page .tax-calc-table td:last-child {
+  text-align: right;
+}
+.invoice-preview-page .tax-calc-table tr.row-total-after-tax td {
+  font-weight: 700;
+  font-size: 9.5pt;
+  border-top: var(--rule-line);
+  border-bottom: var(--rule-line);
+  padding: 1.8mm 3.5mm;
+}
+
+.invoice-preview-page .sign-content-area {
+  padding: 3mm 4mm 2.5mm 4mm;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.invoice-preview-page .sign-certify-text {
+  font-size: 7.5pt;
+  font-style: italic;
+  color: #111;
+  margin-bottom: 2mm;
+}
+.invoice-preview-page .sign-brand-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  font-size: 15pt;
+  color: #000;
+}
+.invoice-preview-page .auth-signature-text {
+  margin-top: auto;
+  font-size: 8.5pt;
+  text-align: center;
+  width: 100%;
+  padding-top: 10mm;
+}
+
+/* Media Print */
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  .page, .invoice-preview-page {
+    margin: 0 !important;
+    box-shadow: none !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    padding: 5mm 6mm !important;
+    border: var(--rule-line) !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
