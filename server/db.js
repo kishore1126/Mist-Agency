@@ -212,63 +212,90 @@ export function getInvoiceById(id) {
   return row ? JSON.parse(row.data) : null;
 }
 
-export function createInvoice(invoiceData) {
+export function getInvoiceStats() {
+  const totalRow = db.prepare('SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as totalRevenue FROM invoices').get();
+  const statusRows = db.prepare('SELECT status, COUNT(*) as count FROM invoices GROUP BY status').all();
+  
+  const statusCounts = {
+    Issued: 0,
+    Paid: 0,
+    Draft: 0,
+    Cancelled: 0
+  };
+  
+  for (const row of statusRows) {
+    if (row.status in statusCounts) {
+      statusCounts[row.status] = row.count;
+    }
+  }
+
+  return {
+    totalInvoices: totalRow.count,
+    totalRevenue: totalRow.totalRevenue,
+    statusCounts
+  };
+}
+
+export function saveOrUpdateInvoice(invoiceData) {
   const id = invoiceData.id || `inv-${Date.now()}`;
   const now = new Date().toISOString();
+  
+  // Check if invoice already exists to preserve original createdAt
+  const existing = db.prepare('SELECT created_at FROM invoices WHERE id = ?').get(id);
+  const createdAt = existing ? existing.created_at : (invoiceData.createdAt || now);
+  
   const invoiceToSave = {
     ...invoiceData,
     id,
-    createdAt: invoiceData.createdAt || now,
+    createdAt,
     updatedAt: now
   };
+
+  const invoiceNumber = invoiceToSave.invoiceNumber || 'Draft';
+  const invoiceDate = invoiceToSave.invoiceDate || new Date().toLocaleDateString('en-GB');
+  const customerName = invoiceToSave.buyer?.companyName || 'Cash Customer';
+  const totalAmount = Number(invoiceToSave.summary?.totalAmountAfterTax || 0);
+  const status = invoiceToSave.status || 'Issued';
+  const dataJson = JSON.stringify(invoiceToSave);
 
   db.prepare(`
     INSERT INTO invoices (id, invoice_number, invoice_date, customer_name, total_amount, status, data, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      invoice_number = excluded.invoice_number,
+      invoice_date = excluded.invoice_date,
+      customer_name = excluded.customer_name,
+      total_amount = excluded.total_amount,
+      status = excluded.status,
+      data = excluded.data,
+      updated_at = excluded.updated_at
   `).run(
     id,
-    invoiceToSave.invoiceNumber,
-    invoiceToSave.invoiceDate,
-    invoiceToSave.buyer?.companyName || 'Cash Customer',
-    Number(invoiceToSave.summary?.totalAmountAfterTax || 0),
-    invoiceToSave.status || 'Issued',
-    JSON.stringify(invoiceToSave),
-    invoiceToSave.createdAt,
-    invoiceToSave.updatedAt
+    invoiceNumber,
+    invoiceDate,
+    customerName,
+    totalAmount,
+    status,
+    dataJson,
+    createdAt,
+    now
   );
 
   return invoiceToSave;
 }
 
+export function createInvoice(invoiceData) {
+  return saveOrUpdateInvoice(invoiceData);
+}
+
 export function updateInvoice(id, invoiceData) {
-  const now = new Date().toISOString();
-  const updatedInvoice = {
-    ...invoiceData,
-    id,
-    updatedAt: now
-  };
-
-  db.prepare(`
-    UPDATE invoices
-    SET invoice_number = ?, invoice_date = ?, customer_name = ?, total_amount = ?, status = ?, data = ?, updated_at = ?
-    WHERE id = ?
-  `).run(
-    updatedInvoice.invoiceNumber,
-    updatedInvoice.invoiceDate,
-    updatedInvoice.buyer?.companyName || 'Cash Customer',
-    Number(updatedInvoice.summary?.totalAmountAfterTax || 0),
-    updatedInvoice.status || 'Issued',
-    JSON.stringify(updatedInvoice),
-    now,
-    id
-  );
-
-  return updatedInvoice;
+  return saveOrUpdateInvoice({ ...invoiceData, id });
 }
 
 export function deleteInvoice(id) {
-  db.prepare('DELETE FROM invoices WHERE id = ?').run(id);
-  return { success: true, id };
+  const info = db.prepare('DELETE FROM invoices WHERE id = ?').run(id);
+  return { success: info.changes > 0, id };
 }
 
 export default db;
+

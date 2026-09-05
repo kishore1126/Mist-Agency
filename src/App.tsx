@@ -6,6 +6,7 @@ import { InvoicePreview } from './components/InvoicePreview';
 import { TemplateEditor } from './components/TemplateEditor';
 import { InvoiceHistory } from './components/InvoiceHistory';
 import { calculateItemRow, calculateInvoiceTotals } from './utils/calculations';
+import { generateInvoiceHtml } from './utils/invoiceHtmlGenerator';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'create' | 'history' | 'template'>('create');
@@ -89,7 +90,7 @@ export default function App() {
         setTemplate(templateData);
 
         // Fetch Recent / Sample Invoice
-        const invoicesRes = await fetch('/api/invoices');
+        const invoicesRes = await fetch('/api/invoices?sortBy=newest');
         const invoicesData = await invoicesRes.json();
         
         if (invoicesData && invoicesData.length > 0) {
@@ -169,23 +170,20 @@ export default function App() {
 
     try {
       setIsSaving(true);
-      const isExisting = Boolean(currentInvoice.id && !currentInvoice.id.startsWith('inv-draft-'));
-      const endpoint = isExisting ? `/api/invoices/${currentInvoice.id}` : '/api/invoices';
-      const method = isExisting ? 'PUT' : 'POST';
-
-      const res = await fetch(endpoint, {
-        method,
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentInvoice)
       });
 
-      if (!res.ok) throw new Error('Failed to save invoice');
+      if (!res.ok) throw new Error('Failed to save invoice to database');
       const savedData = await res.json();
       setCurrentInvoice(savedData);
       showToast(`Invoice ${savedData.invoiceNumber} saved successfully!`);
     } catch (err: any) {
+      console.error('Save invoice error:', err);
       showToast(err.message || 'Error saving invoice', 'error');
-    } fontFinally: {
+    } finally {
       setIsSaving(false);
     }
   };
@@ -251,8 +249,9 @@ export default function App() {
   // Delete invoice handler
   const handleDeleteInvoice = async (id: string) => {
     try {
-      await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
-      showToast('Invoice deleted');
+      const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete invoice');
+      showToast('Invoice deleted successfully');
       if (currentInvoice?.id === id) {
         createNewInvoiceDraft();
       }
@@ -262,155 +261,48 @@ export default function App() {
   };
 
   // Browser Direct Printing Handler
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = (invToPrint?: InvoiceData) => {
+    const target = invToPrint || currentInvoice;
+    if (target && target.id !== currentInvoice?.id) {
+      setCurrentInvoice(target);
+    }
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
-  // Server-side PDF Download Handler with automatic client-side fallback
+  // Universal PDF Download Handler for ANY invoice (works from history, editor, or preview)
   const handleDownloadPdf = async (invToDownload?: InvoiceData) => {
     const targetInvoice = invToDownload || currentInvoice;
     if (!targetInvoice || !template) return;
 
-    const cleanNum = targetInvoice.invoiceNumber.replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanNum = (targetInvoice.invoiceNumber || 'invoice').replace(/[^a-zA-Z0-9]/g, '_');
     const fileName = `MIST_Agencies_Invoice_${cleanNum}.pdf`;
 
     try {
       setIsGeneratingPdf(true);
-      const previewElement = document.getElementById('invoice-preview');
-      if (!previewElement) {
-        throw new Error('Invoice preview element not found');
-      }
+
+      // Auto-save the target invoice in background if not already saved
+      fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(targetInvoice)
+      }).catch(e => console.warn('Auto-save on PDF download notice:', e));
 
       let pdfDownloaded = false;
 
-      // 1. Try Server Puppeteer generation
+      // 1. Try server-side Puppeteer generation with standalone HTML generator
       try {
-        const standaloneHtml = `
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <title>MIST AGENCIES - Tax Invoice</title>
-              <style>
-                :root {
-                  --blue-banner:  #3672B1;
-                  --blue-brand:   #1A4588;
-                  --logo-blue:    #3572B0;
-                  --logo-green:   #8CC63F;
-                  --ink:          #000000;
-                  --rule:         #000000;
-                  --rule-line:    1px solid #000000;
-                  --grey-bg:      #EDEDED;
-                }
-                * { box-sizing: border-box; }
-                @page { size: A4 portrait; margin: 0; }
-                html, body {
-                  margin: 0;
-                  padding: 0;
-                  background: #ffffff;
-                  font-family: Arial, Helvetica, sans-serif;
-                  color: var(--ink);
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                }
-                .page, .invoice-preview-page {
-                  width: 210mm !important;
-                  height: 297mm !important;
-                  min-height: 297mm !important;
-                  max-height: 297mm !important;
-                  margin: 0 auto !important;
-                  background: #ffffff !important;
-                  padding: 7.5mm 6mm !important;
-                  position: relative !important;
-                  box-sizing: border-box !important;
-                  border: var(--rule-line) !important;
-                  box-shadow: none !important;
-                }
-                p { margin: 0.5mm 0; }
-                .invoice-frame { width: 100%; height: 100%; position: relative; }
-                .header-row-1 { display: flex; justify-content: space-between; align-items: baseline; padding: 0 0 2.5mm 0; }
-                .brand-title { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 32pt; letter-spacing: 0.5px; line-height: 1; color: #000000; }
-                .invoice-meta-fields { display: flex; align-items: baseline; gap: 12mm; font-size: 9.5pt; white-space: nowrap; }
-                .meta-field { display: inline-flex; align-items: baseline; gap: 1.5mm; }
-                .meta-field .label { font-weight: 400; color: #000; }
-                .meta-field .value { font-weight: 700; color: #000; }
-                .header-middle-section { display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 3.5mm; margin-left: -6mm; width: calc(100% + 6mm); height: 27mm; }
-                .left-section-col { width: 74.5%; display: flex; flex-direction: column; justify-content: space-between; }
-                .banner-strip { width: 100%; height: 8.5mm; background: var(--blue-banner); color: #ffffff; font-weight: 700; font-size: 12.5pt; letter-spacing: 0.5px; padding-left: 6mm; display: flex; align-items: center; text-transform: uppercase; }
-                .contact-row { display: flex; justify-content: space-between; align-items: center; padding: 1.5mm 0 0 6mm; font-size: 8.8pt; line-height: 1.35; }
-                .contact-address p { margin: 0.5mm 0; }
-                .contact-address a { color: var(--ink); text-decoration: underline; }
-                .contact-phones { display: flex; align-items: center; gap: 2.5mm; font-weight: 700; font-size: 9.5pt; margin-left: auto; white-space: nowrap; }
-                .phone-circle-icon { width: 7.5mm; height: 7.5mm; border-radius: 50%; border: 1.2pt solid #000; display: flex; align-items: center; justify-content: center; }
-                .phone-numbers p { margin: 0.5mm 0; }
-                .right-logo-col { width: 25.5%; display: flex; justify-content: flex-end; align-items: stretch; padding-right: 0; }
-                .logo-container { width: 100%; height: 100%; display: flex; justify-content: flex-end; }
-                .logo-container svg, .logo-container img { height: 100%; width: auto; display: block; object-fit: contain; }
-                .box-party { border: var(--rule-line); margin-bottom: 3.5mm; }
-                .gstin-header-row { display: flex; border-bottom: var(--rule-line); font-size: 9.5pt; padding: 1.8mm 0; }
-                .gstin-cell { padding: 0 2mm; border-right: none; }
-                .gstin-left { width: 33.333%; font-weight: 700; text-align: center; }
-                .gstin-center { width: 33.333%; font-weight: 700; text-align: center; }
-                .gstin-right { width: 33.333%; text-align: center; font-weight: 400; }
-                .party-columns { display: flex; min-height: 38mm; }
-                .party-col { width: 33.333%; padding: 2.5mm 3.5mm; border-right: var(--rule-line); font-size: 8.5pt; line-height: 1.35; display: flex; flex-direction: column; }
-                .party-col:last-child { border-right: none; }
-                .party-title { font-weight: 700; font-size: 9.5pt; margin-bottom: 2mm; }
-                .party-company-name { font-weight: 700; font-size: 9pt; color: #000; margin-bottom: 1.5mm; text-transform: uppercase; }
-                .party-address { margin: 0 0 2mm 0; white-space: pre-line; }
-                .party-meta { margin-top: auto; }
-                .party-meta p { margin: 0.6mm 0; }
-                .box-items { border: var(--rule-line); margin-bottom: 3.5mm; position: relative; }
-                .items-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-                .items-table th, .items-table td { border: var(--rule-line); padding: 1.5mm 2mm; }
-                .items-table thead th { font-weight: 700; text-align: center; background-color: var(--grey-bg); }
-                .col-sr { width: 7.5%; text-align: center; }
-                .col-particulars { width: 27%; text-align: left; }
-                .col-hsn { width: 11%; text-align: center; }
-                .col-qty { width: 7%; text-align: center; }
-                .col-rate { width: 8%; text-align: center; }
-                .col-taxable { width: 11.5%; text-align: center; }
-                .col-igst-pct { width: 5.5%; text-align: center; }
-                .col-igst-amt { width: 10.5%; text-align: center; }
-                .col-total { width: 12%; text-align: center; }
-                .items-table tbody td { text-align: center; vertical-align: top; border-top: none; border-bottom: none; }
-                .items-table tbody td.col-particulars { text-align: left; font-weight: 700; line-height: 1.3; }
-                .blank-area-row td { height: 53.5mm; border-top: none; border-bottom: none; }
-                .table-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 55mm; height: 45mm; opacity: 0.08; pointer-events: none; z-index: 1; }
-                .table-watermark svg { width: 100%; height: 100%; }
-                .items-table tfoot tr { border-top: var(--rule-line); background-color: var(--grey-bg); }
-                .items-table tfoot td { font-weight: 700; text-align: center; padding: 2mm; background-color: var(--grey-bg); }
-                .items-table tfoot td.total-label { text-align: center; }
-                .box-summary { border: var(--rule-line); display: flex; align-items: stretch; }
-                .summary-left-pane { width: 57%; border-right: var(--rule-line); display: flex; flex-direction: column; }
-                .pane-header-bar { border-bottom: var(--rule-line); text-align: center; font-weight: 700; font-size: 9.5pt; padding: 1.8mm 2mm; }
-                .words-content-area { padding: 2mm 4mm; height: 14mm; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 700; font-size: 10.5pt; }
-                .bank-header-bar { border-top: var(--rule-line); border-bottom: var(--rule-line); text-align: center; font-weight: 700; font-size: 9.5pt; padding: 1.8mm 2mm; }
-                .bank-details-content { padding: 2.5mm 4mm; font-size: 9pt; line-height: 1.45; }
-                .bank-details-content p { margin: 0.8mm 0; }
-                .terms-content-area { border-top: var(--rule-line); padding: 2mm 3.5mm; font-size: 7.5pt; line-height: 1.35; margin-top: auto; }
-                .terms-content-area strong { font-size: 8pt; }
-                .summary-right-pane { width: 43%; display: flex; flex-direction: column; }
-                .tax-calc-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-                .tax-calc-table td { padding: 1.6mm 3.5mm; border-bottom: var(--rule-line); }
-                .tax-calc-table td:last-child { text-align: right; }
-                .tax-calc-table tr.row-total-after-tax td { font-weight: 700; font-size: 9.5pt; border-top: var(--rule-line); border-bottom: var(--rule-line); padding: 1.8mm 3.5mm; }
-                .sign-content-area { padding: 3mm 4mm 2.5mm 4mm; text-align: center; display: flex; flex-direction: column; flex: 1 1 auto; }
-                .sign-certify-text { font-size: 7.5pt; font-style: italic; color: #111; margin-bottom: 2mm; }
-                .sign-brand-name { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 15pt; color: #000; }
-                .auth-signature-text { margin-top: auto; font-size: 8.5pt; text-align: center; width: 100%; padding-top: 10mm; }
-              </style>
-            </head>
-            <body>
-              ${previewElement.outerHTML}
-            </body>
-          </html>
-        `;
+        const standaloneHtml = generateInvoiceHtml(targetInvoice, template);
 
         const res = await fetch('/api/invoices/pdf', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ htmlContent: standaloneHtml })
+          body: JSON.stringify({
+            htmlContent: standaloneHtml,
+            invoice: targetInvoice,
+            template
+          })
         });
 
         const contentType = res.headers.get('content-type');
@@ -429,11 +321,15 @@ export default function App() {
           }
         }
       } catch (serverErr) {
-        console.warn('Server PDF generation failed, switching to client-side renderer...', serverErr);
+        console.warn('Server PDF generation failed, switching to client fallback...', serverErr);
       }
 
-      // 2. Client-side html2pdf fallback if server did not produce PDF binary
+      // 2. Client-side html2pdf fallback if server generation was unreachable
       if (!pdfDownloaded && (window as any).html2pdf) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = generateInvoiceHtml(targetInvoice, template);
+        document.body.appendChild(tempDiv);
+
         const opt = {
           margin: 0,
           filename: fileName,
@@ -441,12 +337,14 @@ export default function App() {
           html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
-        await (window as any).html2pdf().set(opt).from(previewElement).save();
+
+        await (window as any).html2pdf().set(opt).from(tempDiv).save();
+        document.body.removeChild(tempDiv);
         pdfDownloaded = true;
       }
 
       if (pdfDownloaded) {
-        showToast('PDF downloaded successfully!');
+        showToast(`Invoice ${targetInvoice.invoiceNumber} PDF downloaded!`);
       } else {
         throw new Error('Could not generate PDF file.');
       }
@@ -457,6 +355,7 @@ export default function App() {
       setIsGeneratingPdf(false);
     }
   };
+
 
   if (!template || !currentInvoice) {
     return (
@@ -536,7 +435,7 @@ export default function App() {
             </button>
             <button
               type="button"
-              onClick={handlePrint}
+              onClick={() => handlePrint()}
               className="text-xs bg-purple-700 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition shadow-sm"
               title="Print directly using browser"
             >
@@ -772,7 +671,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handlePrint}
+                onClick={() => handlePrint()}
                 className="text-xs bg-purple-700 hover:bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition"
               >
                 <Printer className="w-3.5 h-3.5" /> Print

@@ -1,44 +1,20 @@
-import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import puppeteer from 'puppeteer';
-import { fileURLToPath } from 'url';
-import {
-  getTemplate,
-  updateTemplate,
-  resetTemplate,
-  getAllInvoices,
-  getInvoiceById,
-  getInvoiceStats,
-  createInvoice,
-  updateInvoice,
-  deleteInvoice
-} from './db.js';
+import { InvoiceData, TemplateData } from '../types/invoice';
+import { DEFAULT_LOGO_BASE64 } from './logoBase64';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const router = express.Router();
-
-// Helper to render HTML from Invoice & Template objects on backend
-function formatAmount(num) {
+const formatAmount = (num: number | string | undefined): string => {
   if (num === undefined || num === null || num === '') return '0.00';
   const val = Number(num);
   if (isNaN(val)) return String(num);
   const str = val.toFixed(2);
   return str.endsWith('0') && !str.endsWith('.00') ? val.toFixed(1) : str;
-}
+};
 
-function buildInvoiceHtml(invoice, template) {
-  const buyer = invoice.buyer || {};
-  const shippedTo = invoice.shippedTo || {};
-  const shippedFrom = invoice.shippedFrom || {};
-  const items = invoice.items || [];
-  const summary = invoice.summary || {};
-  const logoSrc = template.logoUrl || '';
+export function generateInvoiceHtml(invoice: InvoiceData, template: TemplateData): string {
+  const { buyer, shippedTo, shippedFrom, items, summary } = invoice;
+  const hasCustomLogo = Boolean(template.logoUrl && template.logoUrl.startsWith('data:'));
+  const logoSrc = hasCustomLogo ? template.logoUrl : DEFAULT_LOGO_BASE64;
 
-  const itemRows = items.map((item, idx) => `
+  const itemRowsHtml = items.map((item, idx) => `
     <tr>
       <td class="col-sr">${item.srNo || String(idx + 1).padStart(2, '0')}</td>
       <td class="col-particulars" style="white-space: pre-line;">${(item.particulars || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
@@ -170,6 +146,8 @@ function buildInvoiceHtml(invoice, template) {
 <body>
   <div class="page invoice-preview-page">
     <div class="invoice-frame">
+
+      <!-- Header Row 1 -->
       <div class="header-row-1">
         <div class="brand-title">${template.companyName || 'MIST AGENCIES'}</div>
         <div class="invoice-meta-fields">
@@ -183,9 +161,13 @@ function buildInvoiceHtml(invoice, template) {
           </div>
         </div>
       </div>
+
+      <!-- Middle Section -->
       <div class="header-middle-section">
         <div class="left-section-col">
-          <div class="banner-strip">${template.subtitle || 'DISTRIBUTOR OF PACKAGED DRINKING WATER'}</div>
+          <div class="banner-strip">
+            ${template.subtitle || 'DISTRIBUTOR OF PACKAGED DRINKING WATER'}
+          </div>
           <div class="contact-row">
             <div class="contact-address">
               <p>${template.addressLine1 || 'No.34, New Balaji Nagar, Kottaipalayam(PO)'}</p>
@@ -205,12 +187,15 @@ function buildInvoiceHtml(invoice, template) {
             </div>
           </div>
         </div>
+
         <div class="right-logo-col">
           <div class="logo-container">
-            ${logoSrc ? `<img src="${logoSrc}" alt="MIST Logo" />` : ''}
+            <img src="${logoSrc}" alt="MIST Logo" />
           </div>
         </div>
       </div>
+
+      <!-- BOX 1: Party Details -->
       <div class="box-party">
         <div class="gstin-header-row">
           <div class="gstin-cell gstin-left">GSTIN : ${template.gstin || '33ADZPL9469J1ZI'}</div>
@@ -250,8 +235,12 @@ function buildInvoiceHtml(invoice, template) {
           </div>
         </div>
       </div>
+
+      <!-- BOX 2: Items Table -->
       <div class="box-items">
-        ${logoSrc ? `<div class="table-watermark"><img src="${logoSrc}" alt="" /></div>` : ''}
+        <div class="table-watermark">
+          <img src="${logoSrc}" alt="" />
+        </div>
         <table class="items-table">
           <thead>
             <tr>
@@ -270,7 +259,7 @@ function buildInvoiceHtml(invoice, template) {
             </tr>
           </thead>
           <tbody>
-            ${itemRows}
+            ${itemRowsHtml}
             <tr class="blank-area-row">
               <td class="col-sr"></td>
               <td class="col-particulars"></td>
@@ -294,6 +283,8 @@ function buildInvoiceHtml(invoice, template) {
           </tfoot>
         </table>
       </div>
+
+      <!-- BOX 3: Summary, Bank, Terms & Signature -->
       <div class="box-summary">
         <div class="summary-left-pane">
           <div class="pane-header-bar">Total in words</div>
@@ -309,6 +300,7 @@ function buildInvoiceHtml(invoice, template) {
             <strong>Terms and Conditions:</strong> ${template.terms || 'Empty cans must be returned during the next delivery; loss or damage will incur additional charges.'}
           </div>
         </div>
+
         <div class="summary-right-pane">
           <table class="tax-calc-table">
             <tbody>
@@ -325,282 +317,9 @@ function buildInvoiceHtml(invoice, template) {
           </div>
         </div>
       </div>
+
     </div>
   </div>
 </body>
 </html>`;
 }
-
-// Uploads directory
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Multer storage configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `logo-${Date.now()}${ext}`);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  }
-});
-
-// Logo Upload Route returning base64 Data URI
-router.post('/upload-logo', upload.single('logo'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const mimeType = req.file.mimetype || 'image/png';
-    const logoUrl = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
-    
-    // Clean up temp file
-    fs.unlink(req.file.path, () => {});
-
-    res.json({ success: true, logoUrl });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Template Routes
-router.get('/template', (req, res) => {
-  try {
-    const template = getTemplate();
-    res.json(template);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.put('/template', (req, res) => {
-  try {
-    const updated = updateTemplate(req.body);
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post('/template/reset', (req, res) => {
-  try {
-    const resetted = resetTemplate();
-    res.json(resetted);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Invoice Stats Route
-router.get('/invoices/stats', (req, res) => {
-  try {
-    const stats = getInvoiceStats();
-    res.json(stats);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Invoice Routes
-router.get('/invoices', (req, res) => {
-  try {
-    const { search, sortBy } = req.query;
-    const invoices = getAllInvoices({ search, sortBy });
-    res.json(invoices);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/invoices/:id', (req, res) => {
-  try {
-    const invoice = getInvoiceById(req.params.id);
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
-    res.json(invoice);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post('/invoices', (req, res) => {
-  try {
-    const created = createInvoice(req.body);
-    res.status(201).json(created);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.put('/invoices/:id', (req, res) => {
-  try {
-    const updated = updateInvoice(req.params.id, req.body);
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.delete('/invoices/:id', (req, res) => {
-  try {
-    const result = deleteInvoice(req.params.id);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Duplicate Invoice Route
-router.post('/invoices/:id/duplicate', (req, res) => {
-  try {
-    const original = getInvoiceById(req.params.id);
-    if (!original) {
-      return res.status(404).json({ error: 'Original invoice not found' });
-    }
-
-    const template = getTemplate();
-    const nextNum = template.nextInvoiceNumber || 28;
-    const year = new Date().getFullYear();
-    const newInvoiceNumber = `${nextNum}/ ${year} -${year + 1}`;
-
-    const duplicate = {
-      ...original,
-      id: `inv-${Date.now()}`,
-      invoiceNumber: newInvoiceNumber,
-      invoiceDate: new Date().toLocaleDateString('en-GB'), // DD/MM/YYYY
-      status: 'Draft',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    // Increment next invoice number in template
-    updateTemplate({ ...template, nextInvoiceNumber: nextNum + 1 });
-
-    const created = createInvoice(duplicate);
-    res.status(201).json(created);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Direct PDF Stream by Invoice ID
-router.get('/invoices/:id/pdf', async (req, res) => {
-  let browser;
-  try {
-    const invoice = getInvoiceById(req.params.id);
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
-    const template = getTemplate();
-    const htmlContent = buildInvoiceHtml(invoice, template);
-
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
-    });
-
-    const page = await browser.newPage();
-    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 });
-    await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await new Promise(r => setTimeout(r, 400));
-
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
-    });
-
-    const cleanNum = (invoice.invoiceNumber || req.params.id).replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `MIST_Agencies_Invoice_${cleanNum}.pdf`;
-    const buffer = Buffer.from(pdfBuffer);
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.end(buffer, 'binary');
-  } catch (err) {
-    console.error('Direct PDF Generation error:', err);
-    res.status(500).json({ error: `PDF Generation Failed: ${err.message}` });
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
-    }
-  }
-});
-
-// PDF Generation Route using Puppeteer
-router.post('/invoices/pdf', async (req, res) => {
-  let browser;
-  try {
-    let { htmlContent, invoice, template } = req.body;
-    
-    if (!htmlContent && invoice) {
-      const tmpl = template || getTemplate();
-      htmlContent = buildInvoiceHtml(invoice, tmpl);
-    }
-
-    if (!htmlContent) {
-      return res.status(400).json({ error: 'HTML content or invoice data required for PDF generation' });
-    }
-
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
-    });
-
-    const page = await browser.newPage();
-    
-    // Set viewport to A4 dimensions
-    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 });
-    
-    // Set HTML content with load timeout
-    await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 15000 });
-
-    // Wait a brief moment for fonts and SVG rendering
-    await new Promise(r => setTimeout(r, 400));
-
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: {
-        top: '0mm',
-        right: '0mm',
-        bottom: '0mm',
-        left: '0mm'
-      }
-    });
-
-    const buffer = Buffer.from(pdfBuffer);
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Content-Disposition', 'attachment; filename="MIST_Agencies_Invoice.pdf"');
-    res.end(buffer, 'binary');
-  } catch (err) {
-    console.error('PDF Generation error:', err);
-    res.status(500).json({ error: `PDF Generation Failed: ${err.message}` });
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
-    }
-  }
-});
-
-export default router;
-
